@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package document;
+
+option csharp_namespace = "DocumentManagement.GrpcServer.Proto";
+
+service DocumentService {
+  // Upload a document
+  rpc UploadDocument (stream UploadDocumentRequest) returns (UploadDocumentResponse);
+
+  // Download a document
+  rpc DownloadDocument (DownloadDocumentRequest) returns (stream DownloadDocumentResponse);
+
+  // Get document metadata
+  rpc GetDocumentMetadata (GetDocumentMetadataRequest) returns (DocumentMetadata);
+
+  // Delete a document
+  rpc DeleteDocument (DeleteDocumentRequest) returns (DeleteDocumentResponse);
+
+  // List documents
+  rpc ListDocuments (ListDocumentsRequest) returns (ListDocumentsResponse);
+}
+
+message UploadDocumentRequest {
+  oneof data {
+    // First message contains metadata
+    DocumentInfo metadata = 1;
+    // Subsequent messages contain the file data
+    bytes chunk = 2;
+  }
+}
+
+message DocumentInfo {
+  string file_name = 1;
+  string content_type = 2;
+  StorageType storage_type = 3;
+}
+
+message UploadDocumentResponse {
+  string document_id = 1;
+  DocumentMetadata metadata = 2;
+}
+
+message DownloadDocumentRequest {
+  string document_id = 1;
+}
+
+message DownloadDocumentResponse {
+  oneof data {
+    // First message contains metadata
+    DocumentMetadata metadata = 1;
+    // Subsequent messages contain the file data
+    bytes chunk = 2;
+  }
+}
+
+message GetDocumentMetadataRequest {
+  string document_id = 1;
+}
+
+message DeleteDocumentRequest {
+  string document_id = 1;
+}
+
+message DeleteDocumentResponse {
+  bool success = 1;
+}
+
+message ListDocumentsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListDocumentsResponse {
+  repeated DocumentMetadata documents = 1;
+  string next_page_token = 2;
+}
+
+message DocumentMetadata {
+  string document_id = 1;
+  string file_name = 2;
+  string checksum = 3;
+  string content_type = 4;
+  int64 file_size = 5;
+  StorageType storage_type = 6;
+  string uploaded_at = 7;
+}
+
+enum StorageType {
+  STORAGE_TYPE_UNSPECIFIED = 0;
+  STORAGE_TYPE_S3 = 1;
+  STORAGE_TYPE_FSX = 2;
+  STORAGE_TYPE_BOTH = 3;
+}
