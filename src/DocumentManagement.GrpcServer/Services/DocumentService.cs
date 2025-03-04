@@ -1,15 +1,18 @@
 using Grpc.Core;
 using DocumentManagement.GrpcServer.Proto;
+using System.IO;
 
 namespace DocumentManagement.GrpcServer.Services;
 
 public class DocumentService : Proto.DocumentService.DocumentServiceBase
 {
     private readonly ILogger<DocumentService> _logger;
+    private readonly IDocumentStorageService _storageService;
 
-    public DocumentService(ILogger<DocumentService> logger)
+    public DocumentService(ILogger<DocumentService> logger, IDocumentStorageService storageService)
     {
         _logger = logger;
+        _storageService = storageService;
     }
 
     public override async Task<UploadDocumentResponse> UploadDocument(IAsyncStreamReader<UploadDocumentRequest> requestStream, ServerCallContext context)
@@ -17,7 +20,7 @@ public class DocumentService : Proto.DocumentService.DocumentServiceBase
         try
         {
             DocumentInfo? metadata = null;
-            var chunks = new List<byte[]>();
+            var memoryStream = new MemoryStream();
 
             await foreach (var request in requestStream.ReadAllAsync())
             {
@@ -27,7 +30,7 @@ public class DocumentService : Proto.DocumentService.DocumentServiceBase
                         metadata = request.Metadata;
                         break;
                     case UploadDocumentRequest.DataOneofCase.Chunk:
-                        chunks.Add(request.Chunk.ToByteArray());
+                        await memoryStream.WriteAsync(request.Chunk.ToByteArray());
                         break;
                 }
             }
@@ -37,19 +40,18 @@ public class DocumentService : Proto.DocumentService.DocumentServiceBase
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Document metadata is required"));
             }
 
-            // TODO: Implement storage logic
-            var documentId = Guid.NewGuid().ToString();
+            memoryStream.Position = 0;
+            var (documentId, docMetadata) = await _storageService.StoreDocumentAsync(
+                metadata.FileName,
+                metadata.ContentType,
+                memoryStream,
+                metadata.StorageType,
+                context.CancellationToken);
 
             return new UploadDocumentResponse
             {
                 DocumentId = documentId,
-                Metadata = new DocumentMetadata
-                {
-                    DocumentId = documentId,
-                    FileName = metadata.FileName,
-                    ContentType = metadata.ContentType,
-                    StorageType = metadata.StorageType
-                }
+                Metadata = docMetadata
             };
         }
         catch (Exception ex)
@@ -63,46 +65,38 @@ public class DocumentService : Proto.DocumentService.DocumentServiceBase
     {
         try
         {
-            // Validate request
             if (string.IsNullOrEmpty(request.DocumentId))
             {
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Document ID is required"));
             }
 
-            // TODO: Replace this with actual document retrieval logic
-            // For now, we'll simulate a document with some sample data
-            var documentId = request.DocumentId;
-            var fileName = "sample.txt";
-            var contentType = "text/plain";
-            var content = new byte[1024]; // Simulated content
-            new Random().NextBytes(content);
+            var (content, metadata) = await _storageService.RetrieveDocumentAsync(request.DocumentId, context.CancellationToken);
 
             // Send metadata first
             await responseStream.WriteAsync(new DownloadDocumentResponse
             {
-                Metadata = new DocumentMetadata
-                {
-                    DocumentId = documentId,
-                    FileName = fileName,
-                    ContentType = contentType,
-                    StorageType = StorageType.Fsx
-                }
+                Metadata = metadata
             });
 
             // Stream the content in chunks
             const int chunkSize = 4096; // 4KB chunks
-            for (var i = 0; i < content.Length; i += chunkSize)
+            var buffer = new byte[chunkSize];
+            int bytesRead;
+
+            while ((bytesRead = await content.ReadAsync(buffer, 0, buffer.Length)) > 0)
             {
-                var chunk = new byte[Math.Min(chunkSize, content.Length - i)];
-                Array.Copy(content, i, chunk, 0, chunk.Length);
+                var chunk = new byte[bytesRead];
+                Array.Copy(buffer, chunk, bytesRead);
 
                 await responseStream.WriteAsync(new DownloadDocumentResponse
                 {
                     Chunk = Google.Protobuf.ByteString.CopyFrom(chunk)
                 });
             }
-
-            _logger.LogInformation("Document {DocumentId} downloaded successfully", documentId);
+        }
+        catch (FileNotFoundException)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, $"Document {request.DocumentId} not found"));
         }
         catch (Exception ex)
         {
@@ -110,17 +104,28 @@ public class DocumentService : Proto.DocumentService.DocumentServiceBase
             throw new RpcException(new Status(StatusCode.Internal, "Error downloading document"));
         }
     }
-    
 
-    public override Task<DocumentMetadata> GetDocumentMetadata(GetDocumentMetadataRequest request, ServerCallContext context)
+    public override async Task<DeleteDocumentResponse> DeleteDocument(DeleteDocumentRequest request, ServerCallContext context)
     {
-        // TODO: Implement metadata retrieval logic
-        throw new RpcException(new Status(StatusCode.Unimplemented, "Not implemented"));
-    }
+        try
+        {
+            if (string.IsNullOrEmpty(request.DocumentId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Document ID is required"));
+            }
 
-    public override Task<ListDocumentsResponse> ListDocuments(ListDocumentsRequest request, ServerCallContext context)
-    {
-        // TODO: Implement document listing logic
-        throw new RpcException(new Status(StatusCode.Unimplemented, "Not implemented"));
+            await _storageService.DeleteDocumentAsync(request.DocumentId, context.CancellationToken);
+
+            return new DeleteDocumentResponse { Success = true };
+        }
+        catch (FileNotFoundException)
+        {
+            return new DeleteDocumentResponse { Success = false };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting document {DocumentId}", request.DocumentId);
+            throw new RpcException(new Status(StatusCode.Internal, "Error deleting document"));
+        }
     }
 }
