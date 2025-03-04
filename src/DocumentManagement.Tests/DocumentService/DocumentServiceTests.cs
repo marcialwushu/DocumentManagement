@@ -12,12 +12,14 @@ namespace DocumentManagement.Tests.DocumentService
     {
         private DocumentManagement.GrpcServer.Services.DocumentService _documentService;
         private Mock<ILogger<DocumentManagement.GrpcServer.Services.DocumentService>> _loggerMock;
+        private Mock<IDocumentStorageService> _storageServiceMock;
 
         [TestInitialize]
         public void Setup()
         {
             _loggerMock = new Mock<ILogger<DocumentManagement.GrpcServer.Services.DocumentService>>();
-            _documentService = new DocumentManagement.GrpcServer.Services.DocumentService(_loggerMock.Object);
+            _storageServiceMock = new Mock<IDocumentStorageService>();
+            _documentService = new DocumentManagement.GrpcServer.Services.DocumentService(_loggerMock.Object, _storageServiceMock.Object);
         }
 
         [TestMethod]

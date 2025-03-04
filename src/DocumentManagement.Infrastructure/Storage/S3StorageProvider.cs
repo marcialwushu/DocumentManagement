@@ -30,19 +30,19 @@ namespace DocumentManagement.Infrastructure.Storage
                 var key = documentId;
                 var metadataKey = $"{key}.meta";
 
-                // Upload document content
-                using (var transferUtility = new TransferUtility(_s3Client))
-                {
-                    var uploadRequest = new TransferUtilityUploadRequest
-                    {
-                        BucketName = _bucketName,
-                        Key = key,
-                        InputStream = content,
-                        ContentType = contentType
-                    };
+                // Create transfer utility
+                using var transferUtility = new TransferUtility(_s3Client);
 
-                    await transferUtility.UploadAsync(uploadRequest, cancellationToken);
-                }
+                // Upload document content
+                var uploadRequest = new TransferUtilityUploadRequest
+                {
+                    BucketName = _bucketName,
+                    Key = key,
+                    InputStream = content,
+                    ContentType = contentType
+                };
+
+                await transferUtility.UploadAsync(uploadRequest, cancellationToken);
 
                 // Store metadata
                 var metadata = $"{fileName}|{contentType}";

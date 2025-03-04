@@ -3,8 +3,9 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DocumentManagement.Domain.Storage;
-using DocumentManagement.GrpcServer.Proto;
+using Proto = DocumentManagement.GrpcServer.Proto;
 using Microsoft.Extensions.Logging;
+using DocumentMetadata = DocumentManagement.GrpcServer.Proto.DocumentMetadata;
 
 namespace DocumentManagement.GrpcServer.Services
 {
@@ -14,7 +15,7 @@ namespace DocumentManagement.GrpcServer.Services
             string fileName,
             string contentType,
             Stream content,
-            StorageType storageType,
+            Proto.StorageType storageType,
             CancellationToken cancellationToken = default);
 
         Task<(Stream Content, DocumentMetadata Metadata)> RetrieveDocumentAsync(
@@ -46,7 +47,7 @@ namespace DocumentManagement.GrpcServer.Services
             string fileName,
             string contentType,
             Stream content,
-            StorageType storageType,
+            Proto.StorageType storageType,
             CancellationToken cancellationToken = default)
         {
             try
@@ -55,15 +56,15 @@ namespace DocumentManagement.GrpcServer.Services
 
                 switch (storageType)
                 {
-                    case StorageType.StorageTypeS3:
+                    case Proto.StorageType.StorageTypeS3:
                         await _s3StorageProvider.StoreDocumentAsync(documentId, fileName, contentType, content, cancellationToken);
                         break;
 
-                    case StorageType.StorageTypeFsx:
+                    case Proto.StorageType.StorageTypeFsx:
                         await _fsxStorageProvider.StoreDocumentAsync(documentId, fileName, contentType, content, cancellationToken);
                         break;
 
-                    case StorageType.StorageTypeBoth:
+                    case Proto.StorageType.StorageTypeBoth:
                         await Task.WhenAll(
                             _s3StorageProvider.StoreDocumentAsync(documentId, fileName, contentType, content, cancellationToken),
                             _fsxStorageProvider.StoreDocumentAsync(documentId, fileName, contentType, content, cancellationToken));
@@ -106,7 +107,7 @@ namespace DocumentManagement.GrpcServer.Services
                         DocumentId = documentId,
                         FileName = fileName,
                         ContentType = contentType,
-                        StorageType = StorageType.StorageTypeS3
+                        StorageType = Proto.StorageType.StorageTypeS3
                     };
                     return (content, metadata);
                 }
@@ -118,7 +119,7 @@ namespace DocumentManagement.GrpcServer.Services
                         DocumentId = documentId,
                         FileName = fileName,
                         ContentType = contentType,
-                        StorageType = StorageType.StorageTypeFsx
+                        StorageType = Proto.StorageType.StorageTypeFsx
                     };
                     return (content, metadata);
                 }

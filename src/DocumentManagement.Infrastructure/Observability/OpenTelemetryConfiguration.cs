@@ -4,6 +4,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Logs;
+using Microsoft.Extensions.Logging;
 
 namespace DocumentManagement.Infrastructure.Observability
 {
@@ -23,7 +24,6 @@ namespace DocumentManagement.Infrastructure.Observability
                     .AddSource(serviceName)
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddEntityFrameworkCoreInstrumentation()
                     .AddOtlpExporter(opts =>
                     {
                         opts.Endpoint = new Uri("http://localhost:4317");

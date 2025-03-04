@@ -1,8 +1,8 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Grpc.Net.Client;
 using DocumentManagement.GrpcServer.Services;
-using DocumentManagement.Application.Documents.Commands;
 using DocumentManagement.Domain.Entities;
+using DocumentManagement.GrpcServer.Proto;
 
 namespace DocumentManagement.Tests
 {
@@ -10,14 +10,14 @@ namespace DocumentManagement.Tests
     public class DocumentManagementClientTests
     {
         private GrpcChannel _channel;
-        private Documents.DocumentsClient _client;
+        private GrpcServer.Services.DocumentService.DocumentServiceClient _client;
 
         [TestInitialize]
         public void Setup()
         {
             // Setup the gRPC channel for testing
             _channel = GrpcChannel.ForAddress("http://localhost:5000");
-            _client = new Documents.DocumentsClient(_channel);
+            _client = new DocumentService.DocumentServiceClient(_channel);
         }
 
         [TestMethod]

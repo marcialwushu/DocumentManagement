@@ -6,13 +6,23 @@ namespace DocumentManagement.Domain.Enums
     public enum StorageType
     {
         /// <summary>
+        /// Unspecified storage type
+        /// </summary>
+        Unspecified = 0,
+
+        /// <summary>
         /// Amazon S3 storage
         /// </summary>
-        S3,
+        StorageTypeS3 = 1,
 
         /// <summary>
         /// Amazon FSx storage
         /// </summary>
-        FSx
+        StorageTypeFsx = 2,
+
+        /// <summary>
+        /// Both S3 and FSx storage
+        /// </summary>
+        StorageTypeBoth = 3
     }
 }
